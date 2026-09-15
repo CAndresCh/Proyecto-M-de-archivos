@@ -26,7 +26,11 @@ def cargar_configuracion():
     try:
         with open(ARCHIVO_CONFIG, 'r', encoding='utf-8') as archivo:
             return json.load(archivo)
-    except (json.JSONDecodeError, PermissionError):
+    except json.JSONDecodeError:
+        messagebox.showwarning("Advertencia", "El archivo de configuración está corrupto. Se usarán los ajustes por defecto.")
+        return CONFIG_POR_DEFECTO.copy()
+    except PermissionError:
+        messagebox.showwarning("Advertencia", "Sin permisos de lectura en la configuración. Se usarán los ajustes por defecto.")
         return CONFIG_POR_DEFECTO.copy()
 
 def guardar_configuracion(nuevos_datos):
@@ -57,10 +61,24 @@ class Aplicacion(tb.Window):
         
         self.crear_menu()
         
-        tb.Label(self, text=f"Bienvenido, {self.datos_config['nombre_usuario']}", font=("Helvetica", self.datos_config["tamano_fuente"])).pack(pady=50)
+        tamano_fuente = self.datos_config.get("tamano_fuente", 12)
+        color_texto = self.datos_config.get("color_letra", "#000000")
+        ruta_foto = self.datos_config.get("foto_perfil", "")
+        
+        self.label_bienvenida = tb.Label(
+            self, 
+            text=f"Bienvenido, {self.datos_config['nombre_usuario']}", 
+            font=("Helvetica", tamano_fuente),
+            foreground=color_texto
+        )
+        self.label_bienvenida.pack(pady=50)
+
+        if ruta_foto:
+            tb.Label(self, text=f"Ruta de foto cargada:\n{ruta_foto}", justify="center").pack(pady=10)
 
     def crear_menu(self):
-        barra_menu = tb.Menu(self)
+        color_fondo_menu = self.datos_config.get("color_menu", "#ffffff")
+        barra_menu = tb.Menu(self, bg=color_fondo_menu)
         
         menu_archivo = tb.Menu(barra_menu, tearoff=0)
         menu_archivo.add_command(label="Subopción Simulada")
