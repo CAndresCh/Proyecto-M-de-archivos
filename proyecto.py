@@ -89,7 +89,7 @@ class Aplicacion(tb.Window):
         barra_menu.add_cascade(label="Edición", menu=menu_edicion)
         
         menu_ver = tb.Menu(barra_menu, tearoff=0)
-        menu_ver.add_command(label="Simulado")
+        menu_ver.add_command(label="Ver Configuración Actual", command=self.ver_configuracion)
         barra_menu.add_cascade(label="Ver", menu=menu_ver)
         
         menu_configuracion = tb.Menu(barra_menu, tearoff=0)
@@ -128,16 +128,27 @@ class Aplicacion(tb.Window):
         tb.Button(ventana, text="Elegir Foto Perfil", bootstyle=INFO, command=self.elegir_foto).pack(pady=5)
         
         def guardar_cambios():
+            try:
+                tamano = var_fuente.get()
+            except tb.tk.TclError:
+                messagebox.showerror("Error de validación", "El tamaño de fuente debe ser un número entero válido.")
+                return # Detiene el guardado si hay error
+
             self.datos_config["nombre_usuario"] = var_nombre.get()
             self.datos_config["tema"] = var_tema.get()
             self.datos_config["idioma"] = var_idioma.get()
-            self.datos_config["tamano_fuente"] = var_fuente.get()
-            
+            self.datos_config["tamano_fuente"] = tamano
+                
             if guardar_configuracion(self.datos_config):
                 messagebox.showinfo("Éxito", "Configuración guardada. Reinicie para aplicar cambios.")
                 ventana.destroy()
-                
-        tb.Button(ventana, text="Guardar Configuración", bootstyle=SUCCESS, command=guardar_cambios).pack(pady=20)
+
+    def ver_configuracion(self):
+        # Muestra los datos actuales en una ventana de mensaje
+        info = "Configuración Actual:\n\n"
+        for clave, valor in self.datos_config.items():
+            info += f"- {clave}: {valor}\n"
+        messagebox.showinfo("Ver Configuración", info)
 
     def elegir_color(self, clave):
         codigo_color = colorchooser.askcolor(title="Elige un color")[1]
