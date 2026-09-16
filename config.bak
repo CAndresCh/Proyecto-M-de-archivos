@@ -1,9 +1,9 @@
 {
     "nombre_usuario": "Usuario",
-    "tema": "litera",
+    "tema": "Light",
     "idioma": "es",
-    "tamano_fuente": 12,
-    "color_menu": "#ffffff",
-    "color_letra": "#000000",
+    "tamano_fuente": 20,
+    "color_menu": "#730e8c",
+    "color_letra": "#ffffff",
     "foto_perfil": ""
 }

@@ -19,17 +19,20 @@ CONFIG_POR_DEFECTO = {
 }
 
 def cargar_configuracion():
+    config_actual = CONFIG_POR_DEFECTO.copy()
     if not os.path.exists(ARCHIVO_CONFIG):
-        return CONFIG_POR_DEFECTO.copy()
+        return config_actual
     try:
         with open(ARCHIVO_CONFIG, 'r', encoding='utf-8') as archivo:
-            return json.load(archivo)
+            datos_leidos = json.load(archivo)
+            config_actual.update(datos_leidos)
+            return config_actual
     except json.JSONDecodeError:
         messagebox.showwarning("Advertencia", "El archivo de configuración está corrupto. Se usarán los ajustes por defecto.")
-        return CONFIG_POR_DEFECTO.copy()
+        return config_actual
     except PermissionError:
         messagebox.showwarning("Advertencia", "Sin permisos de lectura en la configuración. Se usarán los ajustes por defecto.")
-        return CONFIG_POR_DEFECTO.copy()
+        return config_actual
 
 def guardar_configuracion(nuevos_datos):
     try:
@@ -67,16 +70,64 @@ class Aplicacion(ctk.CTk):
         self.crear_interfaz_principal()
 
     def crear_menu_superior(self):
-        barra_frame = ctk.CTkFrame(self, height=45, corner_radius=0, fg_color=("gray85", "gray15"))
+        color_fondo = self.datos_config.get("color_menu", "#1f538d")
+        
+        barra_frame = ctk.CTkFrame(self, height=45, corner_radius=0, fg_color=color_fondo)
         barra_frame.pack(side="top", fill="x")
         
-        ctk.CTkButton(barra_frame, text="📁 Archivo", width=90, fg_color="transparent", text_color=("black", "white"), hover_color=("gray70", "gray30"), command=self.accion_archivo).pack(side="left", padx=5, pady=6)
-        ctk.CTkButton(barra_frame, text="✏️ Edición", width=90, fg_color="transparent", text_color=("black", "white"), hover_color=("gray70", "gray30"), command=self.accion_edicion).pack(side="left", padx=5, pady=6)
-        ctk.CTkButton(barra_frame, text="👁️ Ver", width=80, fg_color="transparent", text_color=("black", "white"), hover_color=("gray70", "gray30"), command=self.ver_configuracion).pack(side="left", padx=5, pady=6)
+        self.menu_archivo = ctk.CTkOptionMenu(barra_frame, values=["Restaurar Backup (.bak)", "Eliminar Configuración"], command=self.manejar_menu_archivo, width=120, fg_color=("gray75", "gray25"), text_color=("black", "white"), button_color=("gray70", "gray30"), button_hover_color=("gray60", "gray40"))
+        self.menu_archivo.set("📁 Archivo")
+        self.menu_archivo.pack(side="left", padx=5, pady=6)
+        
+        self.menu_edicion = ctk.CTkOptionMenu(barra_frame, values=["Restablecer Valores", "Limpiar Foto de Perfil"], command=self.manejar_menu_edicion, width=120, fg_color=("gray75", "gray25"), text_color=("black", "white"), button_color=("gray70", "gray30"), button_hover_color=("gray60", "gray40"))
+        self.menu_edicion.set("✏️ Edición")
+        self.menu_edicion.pack(side="left", padx=5, pady=6)
+        
+        ctk.CTkButton(barra_frame, text="👁️ Ver JSON", width=90, fg_color="transparent", text_color=("black", "white"), hover_color=("gray70", "gray30"), command=self.ver_configuracion).pack(side="left", padx=5, pady=6)
         
         ctk.CTkButton(barra_frame, text="❌ Salir", width=80, fg_color="#c93434", text_color="white", hover_color="#992626", command=self.destroy).pack(side="right", padx=(5, 10), pady=6)
         
         ctk.CTkButton(barra_frame, text="⚙️ Settings", width=90, fg_color="#1f538d", text_color="white", hover_color="#14375e", command=self.abrir_configuracion).pack(side="right", padx=5, pady=6)
+
+    def manejar_menu_archivo(self, eleccion):
+        if eleccion == "Restaurar Backup (.bak)":
+            if os.path.exists(ARCHIVO_RESPALDO):
+                shutil.copy(ARCHIVO_RESPALDO, ARCHIVO_CONFIG)
+                messagebox.showinfo("Éxito", "Copia de seguridad restaurada correctamente. Se reiniciará la app.")
+                self.reiniciar_app()
+                return
+            else:
+                messagebox.showwarning("Error", "No se encontró el archivo config.bak para restaurar.")
+        
+        elif eleccion == "Eliminar Configuración":
+            confirmacion = messagebox.askyesno("Confirmar", "¿Seguro que deseas eliminar el archivo JSON? Perderás tus ajustes.")
+            if confirmacion and os.path.exists(ARCHIVO_CONFIG):
+                os.remove(ARCHIVO_CONFIG)
+                messagebox.showinfo("Éxito", "Archivo eliminado. Se reiniciará la app con valores por defecto.")
+                self.reiniciar_app()
+                return
+                
+        self.menu_archivo.set("📁 Archivo")
+
+    def manejar_menu_edicion(self, eleccion):
+        if eleccion == "Restablecer Valores":
+            if guardar_configuracion(CONFIG_POR_DEFECTO):
+                messagebox.showinfo("Éxito", "Valores de fábrica restablecidos. Se reiniciará la app.")
+                self.reiniciar_app()
+                return
+                
+        elif eleccion == "Limpiar Foto de Perfil":
+            self.datos_config["foto_perfil"] = ""
+            if guardar_configuracion(self.datos_config):
+                messagebox.showinfo("Éxito", "Foto de perfil eliminada. Se reiniciará la app.")
+                self.reiniciar_app()
+                return
+                
+        self.menu_edicion.set("✏️ Edición")
+
+    def reiniciar_app(self):
+        self.destroy()
+        Aplicacion().mainloop()
 
     def crear_interfaz_principal(self):
         card = ctk.CTkFrame(self, corner_radius=15, fg_color=("white", "gray20"), width=550, height=320)
@@ -85,8 +136,9 @@ class Aplicacion(ctk.CTk):
         tamano_fuente = self.datos_config.get("tamano_fuente", 14)
         nombre = self.datos_config.get("nombre_usuario", "Usuario")
         ruta_foto = self.datos_config.get("foto_perfil", "")
+        color_texto = self.datos_config.get("color_letra", "#ffffff")
         
-        ctk.CTkLabel(card, text=f"¡Bienvenido, {nombre}!", font=ctk.CTkFont(family="Helvetica", size=tamano_fuente + 6, weight="bold")).pack(pady=(35, 10))
+        ctk.CTkLabel(card, text=f"¡Bienvenido, {nombre}!", font=ctk.CTkFont(family="Helvetica", size=tamano_fuente + 6, weight="bold"), text_color=color_texto).pack(pady=(35, 10))
         ctk.CTkLabel(card, text="Aplicación de Escritorio con Gestión de Configuración Segura", font=ctk.CTkFont(size=12), text_color="gray").pack(pady=(0, 20))
         
         info_frame = ctk.CTkFrame(card, fg_color="transparent")
@@ -98,12 +150,6 @@ class Aplicacion(ctk.CTk):
         ctk.CTkLabel(info_frame, text=foto_texto, font=ctk.CTkFont(size=12), text_color=("gray40", "gray60")).pack(anchor="w", pady=2)
 
         ctk.CTkButton(card, text="Abrir Panel de Settings", command=self.abrir_configuracion, fg_color="#2b825c", hover_color="#1f5e42", font=ctk.CTkFont(weight="bold")).pack(pady=20)
-
-    def accion_archivo(self):
-        messagebox.showinfo("Menú Archivo", "Opción de Archivo simulada correctamente.")
-
-    def accion_edicion(self):
-        messagebox.showinfo("Menú Edición", "Opción de Edición simulada correctamente.")
 
     def ver_configuracion(self):
         info = "Configuración Actual Almacenada:\n\n"
@@ -164,9 +210,7 @@ class Aplicacion(ctk.CTk):
             
             if guardar_configuracion(self.datos_config):
                 messagebox.showinfo("Éxito", "Configuración guardada de forma segura (.tmp / .bak). Reiniciando app...")
-                ventana.destroy()
-                self.destroy()
-                Aplicacion().mainloop()
+                self.reiniciar_app()
 
         ctk.CTkButton(ventana, text="💾 Guardar Configuración", command=guardar_cambios, fg_color="#2b825c", hover_color="#1f5e42", height=38, font=ctk.CTkFont(weight="bold")).pack(fill="x", padx=35, pady=10)
 
